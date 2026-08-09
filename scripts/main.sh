@@ -107,17 +107,26 @@ push_state() {
     # busybox wget has no built-in retry; retry manually. Exit 0 on success,
     # non-zero (network failure or HTTP error) otherwise.
     for attempt in 1 2 3 4; do
-        wget -q -T 20 -O /dev/null \
+        # Capture stderr so HTTP errors are diagnosable: with -q the status
+        # line is swallowed entirely and you can't tell 401 from 500.
+        WGET_ERR=$(wget -S -T 20 -O /dev/null \
             --header="Authorization: Bearer ${HA_TOKEN}" \
             --header="Content-Type: application/json" \
             --post-data="$payload" \
-            "${HA_SCHEME}://${HA_IP}:${HA_PORT}/api/states/${entity}"
+            "${HA_SCHEME}://${HA_IP}:${HA_PORT}/api/states/${entity}" 2>&1)
         rc=$?
         [ "$rc" -eq 0 ] && return 0
+        # A 401 (bad or expired token) is permanent; don't burn the retries.
+        case "$WGET_ERR" in
+            *"401"*)
+                log "ERROR" "Push ${entity} rejected (HTTP 401 - check HA_TOKEN)"
+                return 1
+                ;;
+        esac
         [ "$attempt" -lt 4 ] && sleep 2
     done
 
-    log "ERROR" "Failed to push ${entity} to Home Assistant (wget exit $rc)"
+    log "ERROR" "Failed to push ${entity} to Home Assistant (wget exit $rc): $WGET_ERR"
     return 1
 }
 
