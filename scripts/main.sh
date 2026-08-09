@@ -45,6 +45,7 @@ OVERHEAD_PER_FRAME=$((38 + VLAN_BYTES + PPPOE_BYTES))
 log "INFO" "Config: HA=${HA_SCHEME}://${HA_IP}:${HA_PORT} (token: ${#HA_TOKEN} chars)"
 log "INFO" "       ONT=${ONT_HOST} user=${ONT_USER} (pass: ${#ONT_PASS} chars) wan=${WAN_INTERFACE}"
 log "INFO" "       vlan=${VLAN_ENABLED} pppoe=${PPPOE_ENABLED} overhead=${OVERHEAD_PER_FRAME} B/frame dry_run=${DRY_RUN}"
+log "INFO" "       interval=${INTERVAL}s max_backoff=${MAX_BACKOFF}s status_file=${STATUS_FILE} health_max_age=${HEALTHCHECK_MAX_AGE}s"
 
 export ONT_HOST ONT_USER ONT_PASS
 
