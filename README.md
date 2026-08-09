@@ -159,7 +159,7 @@ The entrypoint runs any command passed to it; with no command it enters the poll
 
 ## Overhead deduction
 
-The ONT's `BytesSent` / `BytesReceived` counters include all bytes that went onto the wire, but only the **payload** is useful to you. The frame counters tell you how many frames those bytes were split across, so the per-frame overhead can be deducted:
+The ONT's `BytesSent` / `BytesReceived` counters include every byte that went onto the wire, but ISPs don't bill for all of it. BNG and RADIUS accounting counts **IP-layer octets** — the IP datagrams passed over the session, including the IP header but excluding everything below it (L1 physical framing and L2 Ethernet/PPP encapsulation). That lower-layer overhead is the ISP's job to carry, not something you pay for, so it shouldn't count against your usage either. The frame counters tell you how many frames those bytes were split across, so the per-frame overhead can be deducted:
 
 | Component                            | Bytes/frame | Applied              |
 | ------------------------------------ | ----------- | -------------------- |
@@ -174,7 +174,7 @@ The ONT's `BytesSent` / `BytesReceived` counters include all bytes that went ont
 net_bytes = raw_bytes - frames * (38 + (VLAN_ENABLED ? 4 : 0) + (PPPOE_ENABLED ? 8 : 0))
 ```
 
-VLAN tagging on the WAN/Internet service is used by almost all ISPs (e.g. SLT, Dialog, and most GPON deployments), so it defaults to `true`. PPPoE is ISP-specific and disabled by default — enable it only if your connection actually uses PPPoE. The resulting `overhead_per_frame` is shown in the logs and stored on each sensor's attributes.
+Because billing happens at the IP layer, the **IP header itself is not deducted** — only the L1/L2 framing and the PPPoE wrapper. VLAN tagging on the WAN/Internet service is used by almost all ISPs (e.g. SLT, Dialog, and most GPON deployments), so it defaults to `true`. PPPoE is ISP-specific and disabled by default — enable it only if your connection actually uses PPPoE. The resulting `overhead_per_frame` is shown in the logs and stored on each sensor's attributes.
 
 ## Home Assistant sensors
 
@@ -191,6 +191,16 @@ Attributes: `raw_bytes`, `frames`, `overhead_per_frame`.
 All sensors use `unit_of_measurement: B`, `device_class: data_size`, and `state_class: total_increasing`, so Home Assistant will correctly derive down/up rates (e.g. for the energy & data dashboards).
 
 > The values are the router's lifetime counters. Because they are monotonically increasing and may be huge (hundreds of GB), keep `state_class: total_increasing` — Home Assistant computes deltas for you.
+
+## Tested devices
+
+The exporter is developed and verified against the following ONTs:
+
+| Device          | Notes                                                                                                                                                                                     |
+| --------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Huawei HG8245H5 | GPON ONT. SSH runs Dropbear (legacy `ssh-rsa` host key only), login shell is the `WAP>` CLI, and `display bbsp stats wan` reports the `wan1`/`wan2`/`wan3` counters used by the exporter. |
+
+The behaviors the exporter accounts for were observed on this device: the `WAP>` shell rejects remote-command (`exec`) requests with a connection reset, drops input typed before the prompt is ready, and allows only one concurrent SSH session. If your device behaves differently, `PROMPT_TIMEOUT`, `COMMAND_ATTEMPTS` and `AUTO_KILL_SESSIONS` cover the common variations.
 
 ## Troubleshooting
 
