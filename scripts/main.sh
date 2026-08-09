@@ -81,7 +81,12 @@ PARSED_JSON=$(printf '%s\n' "$RAW_OUTPUT" | awk -v wan="$WAN_INTERFACE" '
     in_wan && /^[ \t]*BytesReceived[ \t]*:/ { split($0, b, ":"); bytes_recv=b[2]; gsub(/[ \t\r\n]/, "", bytes_recv) }
     in_wan && /^[ \t]*FrameSent[ \t]*:/ { split($0, f, ":"); frames_sent=f[2]; gsub(/[ \t\r\n]/, "", frames_sent) }
     in_wan && /^[ \t]*FrameReceived[ \t]*:/ { split($0, g, ":"); frames_recv=g[2]; gsub(/[ \t\r\n]/, "", frames_recv) }
-    END { if (found) printf "{\"bytes_sent\":%d,\"bytes_received\":%d,\"frames_sent\":%d,\"frames_received\":%d}\n", bytes_sent+0, bytes_recv+0, frames_sent+0, frames_recv+0 }
+    END {
+        if (found)
+            printf "{\"bytes_sent\":%s,\"bytes_received\":%s,\"frames_sent\":%s,\"frames_received\":%s}\n",
+                (bytes_sent=="" ? 0 : bytes_sent), (bytes_recv=="" ? 0 : bytes_recv),
+                (frames_sent=="" ? 0 : frames_sent), (frames_recv=="" ? 0 : frames_recv)
+    }
 ')
 
 if [ -z "$PARSED_JSON" ]; then
