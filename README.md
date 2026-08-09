@@ -74,7 +74,6 @@ podman build -t huawei-ont-exporter .
 podman run -d --name huawei-ont-exporter \
   --restart unless-stopped \
   --env-file .env \
-  -v /etc/localtime:/etc/localtime:ro \
   huawei-ont-exporter
 ```
 
@@ -84,22 +83,14 @@ With Docker:
 docker run -d --name huawei-ont-exporter \
   --restart unless-stopped \
   --env-file .env \
-  -v /etc/localtime:/etc/localtime:ro \
   huawei-ont-exporter
 ```
-
-The `-v /etc/localtime:/etc/localtime:ro` mount gives the container your host
-timezone so log timestamps are local (podman/docker resolve the symlink, so
-distros like Fedora/Ubuntu work as-is). If you skip it, logs are in UTC. The
-image deliberately does not ship `tzdata`, keeping it slim.
 
 Or with Docker/Podman Compose:
 
 ```sh
 docker compose up -d     # or: podman-compose up -d
 ```
-
-(the compose file already mounts `/etc/localtime`).
 
 Or with the Makefile (build/run/logs/status/stop/once/shell):
 
@@ -155,7 +146,6 @@ defaults.
 | `VLAN_ENABLED`   | `true`        | Deduct the 4 B 802.1Q VLAN tag per frame (see below)     |
 | `PPPOE_ENABLED`  | `false`       | Deduct the 8 B PPPoE encapsulation per frame (see below) |
 | `DRY_RUN`        | `false`       | Read + log stats but do not push anything to Home Assistant |
-| `TZ`             | (unset)       | Log timestamps use the host timezone when `/etc/localtime` is mounted (see below); a `TZ` env var also works if it's a POSIX offset (named zones like `Asia/Colombo` need tzdata, which the image does not ship) |
 | `MAX_BACKOFF`    | `3600`        | Cap (seconds) on the exponential backoff after failures  |
 | `PROMPT_TIMEOUT` | `15`          | Max seconds to wait for the `WAP>` prompt before giving up |
 | `OUTPUT_TIMEOUT` | `20`          | Max seconds to wait for the command output before quitting |
