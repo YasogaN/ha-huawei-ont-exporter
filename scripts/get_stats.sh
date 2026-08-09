@@ -88,7 +88,7 @@ SESSION_PID=$!
             fi
         fi
         sleep 0.5
-        ELAPSED=$((ELAPSED + 1))
+        ELAPSED=$((ELAPSED + 2))
     done
 
     if [ "$PROMPT_SEEN" -eq 1 ]; then
@@ -106,7 +106,7 @@ SESSION_PID=$!
         ELAPSED=0
         while [ "$ELAPSED" -lt "$OUTPUT_TIMEOUT" ] && ! grep -q 'success!' "$OUT_FILE" 2>/dev/null; do
             sleep 0.5
-            ELAPSED=$((ELAPSED + 1))
+            ELAPSED=$((ELAPSED + 2))
         done
     fi
 
