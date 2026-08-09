@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/bin/sh
 
 # ==============================================================================
 # Huawei ONT bandwidth exporter for Home Assistant
