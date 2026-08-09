@@ -9,13 +9,11 @@ Most ISPs disable SNMP on their CPEs, so you can't query traffic counters that w
 ```mermaid
 flowchart LR
     A["Huawei ONT<br/>(WAP CLI)"]
-    B["Exporter container"]
-    C["Home Assistant"]
-    D["sensor.huawei_ont_*"]
+    B["Exporter<br/>(Container)"]
+    C["Home Assistant<br/>sensor.huawei_ont_*"]
 
-    A -->|"SSH: display bbsp stats wan"| B
-    B -->|"dbclient + awk: parse &amp; deduct"| C
-    C -->|"REST API"| D
+    A <-->|"SSH / WAP CLI<br/>display bbsp stats wan"| B
+    B -->|"REST API"| C
 ```
 
 1. `get_stats.sh` logs into the ONT over SSH with Dropbear's `dbclient` (password supplied via `DROPBEAR_PASSWORD`, so no `sshpass` needed) and runs `display bbsp stats wan`. The ONT's WAP shell does not accept remote commands, so the command is typed into the session — the script waits for the `WAP>` prompt before typing and for the ONT's `success!` before logging out, so it is immune to connection timing.
