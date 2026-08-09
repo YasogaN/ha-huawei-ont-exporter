@@ -1,7 +1,7 @@
 IMAGE ?= huawei-ont-exporter
 ENV_FILE ?= .env
 
-.PHONY: build run once logs status stop shell clean lint
+.PHONY: build run once logs status stop shell clean lint test
 
 ## build: build the container image
 build:
@@ -12,6 +12,10 @@ lint:
 	command -v shellcheck >/dev/null 2>&1 && shellcheck scripts/*.sh \
 		|| podman run --rm -v $(CURDIR):/w:z -w /w docker.io/koalaman/shellcheck-alpine:latest \
 			sh -c 'shellcheck /w/scripts/*.sh'
+
+## test: run the unit tests (awk parser, overhead math, golden payload)
+test:
+	./scripts/test.sh
 
 ## run: start the exporter as a background container
 run:

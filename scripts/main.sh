@@ -15,6 +15,8 @@ set -u
 # Load all configuration (defaults, validation, normalization) from config.sh
 # shellcheck disable=SC1091  # config.sh is linted separately (scripts/*.sh)
 . "$(dirname "$0")/config.sh"
+# shellcheck disable=SC1091  # parse_stats.sh is linted separately (scripts/*.sh)
+. "$(dirname "$0")/parse_stats.sh"
 
 require HA_IP HA_TOKEN ONT_HOST ONT_USER ONT_PASS
 
@@ -57,20 +59,7 @@ if [ "$STATS_EXIT_CODE" -ne 0 ]; then
     exit 1
 fi
 
-PARSED_JSON=$(printf '%s\n' "$RAW_OUTPUT" | awk -v wan="$WAN_INTERFACE" '
-    index($0, wan " packet statistic:") > 0 { found=1; in_wan=1; next }
-    /-----------------------------------------/ { if (in_wan) in_wan=0 }
-    in_wan && /^[ \t]*BytesSent[ \t]*:/ { split($0, a, ":"); bytes_sent=a[2]; gsub(/[ \t\r\n]/, "", bytes_sent) }
-    in_wan && /^[ \t]*BytesReceived[ \t]*:/ { split($0, b, ":"); bytes_recv=b[2]; gsub(/[ \t\r\n]/, "", bytes_recv) }
-    in_wan && /^[ \t]*FrameSent[ \t]*:/ { split($0, f, ":"); frames_sent=f[2]; gsub(/[ \t\r\n]/, "", frames_sent) }
-    in_wan && /^[ \t]*FrameReceived[ \t]*:/ { split($0, g, ":"); frames_recv=g[2]; gsub(/[ \t\r\n]/, "", frames_recv) }
-    END {
-        if (found)
-            printf "{\"bytes_sent\":%s,\"bytes_received\":%s,\"frames_sent\":%s,\"frames_received\":%s}\n",
-                (bytes_sent=="" ? 0 : bytes_sent), (bytes_recv=="" ? 0 : bytes_recv),
-                (frames_sent=="" ? 0 : frames_sent), (frames_recv=="" ? 0 : frames_recv)
-    }
-')
+PARSED_JSON=$(printf '%s\n' "$RAW_OUTPUT" | parse_stats "$WAN_INTERFACE")
 
 if [ -z "$PARSED_JSON" ]; then
     log "ERROR" "Could not find WAN interface '$WAN_INTERFACE' in ONT output"
@@ -89,19 +78,8 @@ FRAMES_RECV=$(extract frames_received)
 # ------------------------------------------------------------------------------
 # 2. Deduct per-frame wire overhead
 # ------------------------------------------------------------------------------
-deduct() {
-    raw="$1"
-    frames="$2"
-    net=$((raw - frames * OVERHEAD_PER_FRAME))
-    if [ "$net" -lt 0 ]; then
-        log "WARN" "Overhead deduction produced a negative value (raw=$raw frames=$frames); clamping to 0"
-        net=0
-    fi
-    echo "$net"
-}
-
-NET_SENT=$(deduct "$BYTES_SENT" "$FRAMES_SENT")
-NET_RECV=$(deduct "$BYTES_RECV" "$FRAMES_RECV")
+NET_SENT=$(deduct_overhead "$BYTES_SENT" "$FRAMES_SENT" "$OVERHEAD_PER_FRAME")
+NET_RECV=$(deduct_overhead "$BYTES_RECV" "$FRAMES_RECV" "$OVERHEAD_PER_FRAME")
 NET_TOTAL=$((NET_SENT + NET_RECV))
 RAW_TOTAL=$((BYTES_SENT + BYTES_RECV))
 FRAMES_TOTAL=$((FRAMES_SENT + FRAMES_RECV))
@@ -119,8 +97,7 @@ push_state() {
     name="$3"
     raw="$4"
     frames="$5"
-    payload=$(printf '{"state":"%s","attributes":{"unit_of_measurement":"B","device_class":"data_size","state_class":"total_increasing","friendly_name":"%s","raw_bytes":%s,"frames":%s,"overhead_per_frame":%d}}' \
-        "$state" "$name" "$raw" "$frames" "$OVERHEAD_PER_FRAME")
+    payload=$(sensor_payload "$state" "$name" "$raw" "$frames" "$OVERHEAD_PER_FRAME")
 
     # busybox wget has no built-in retry; retry manually. Exit 0 on success,
     # non-zero (network failure or HTTP error) otherwise.

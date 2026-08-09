@@ -46,12 +46,14 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 | `Dockerfile`                    | Alpine-based image (~9 MB) with dropbear dbclient and wget |
 | `docker-compose.yml`            | Compose deployment (env file, restart, healthcheck)        |
 | `huawei-ont-exporter.container` | Podman Quadlet unit (systemd-managed container)            |
-| `Makefile`                      | `make build/run/logs/status/stop/once/shell`               |
+| `Makefile`                      | `make build/run/logs/status/stop/once/shell/test`          |
 | `scripts/entrypoint.sh`         | Polling loop with failure backoff, or a one-shot command   |
 | `scripts/main.sh`               | dbclient + parse + deduct overhead + push to HA            |
 | `scripts/config.sh`             | Central env handling: defaults, validation, normalization |
+| `scripts/parse_stats.sh`        | Pure parse/deduct/payload logic (shared with the tests)    |
 | `scripts/get_stats.sh`          | dbclient SSH session against the ONT CLI                   |
 | `scripts/healthcheck.sh`        | Container healthcheck (last successful run freshness)      |
+| `scripts/test.sh`               | Unit tests: parser, overhead math, golden payload (`make test` and CI) |
 | `.env.example`                  | Template for the required environment variables            |
 
 ## Prerequisites
@@ -191,6 +193,14 @@ podman run --rm --env-file .env huawei-ont-exporter /app/main.sh
 ```
 
 The entrypoint runs any command passed to it; with no command it enters the polling loop. `INTERVAL` is ignored in one-shot mode.
+
+### Unit tests
+
+The risky pure logic (the `awk` parser and the overhead-deduction math) has unit tests that run from a sample `display bbsp stats wan` capture — including a golden-file check on the total sensor's payload shape. They run locally via `make test` and in CI on every push/PR:
+
+```sh
+make test
+```
 
 ## Overhead deduction
 

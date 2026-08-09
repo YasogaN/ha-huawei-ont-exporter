@@ -27,6 +27,9 @@ jobs:
       - name: Shellcheck
         run: shellcheck scripts/*.sh
 
+      - name: Run unit tests
+        run: ./scripts/test.sh
+
   build-and-push:
     needs: check
     runs-on: ubuntu-latest

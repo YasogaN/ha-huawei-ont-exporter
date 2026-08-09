@@ -1,0 +1,24 @@
+name: CI
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Shell syntax check
+        run: |
+          for f in scripts/*.sh; do
+            echo "==> $f"
+            sh -n "$f"
+          done
+
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
+
+      - name: Run unit tests
+        run: ./scripts/test.sh
