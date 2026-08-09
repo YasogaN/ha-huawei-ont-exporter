@@ -1,0 +1,81 @@
+#!/usr/bin/expect -f
+
+# ==============================================================================
+# Huawei ONT stats collector (expect)
+# Connects over SSH and runs: display bbsp stats wan
+# Credentials are read from the environment (ONT_HOST / ONT_USER / ONT_PASS).
+# ==============================================================================
+
+set timeout 15
+
+# Target parameters are read from the environment (set in .env)
+foreach var {ONT_HOST ONT_USER ONT_PASS} {
+    if {![info exists env($var)]} {
+        puts "Error: Environment variable $var is not set"
+        exit 1
+    }
+}
+set host $env(ONT_HOST)
+set user $env(ONT_USER)
+set pass $env(ONT_PASS)
+
+# Keep raw output on stdout so it can be piped to awk
+log_user 1
+
+# Spawn SSH with legacy cipher support and a pseudo-terminal (-tt)
+spawn ssh -tt \
+    -o ConnectTimeout=10 \
+    -o StrictHostKeyChecking=no \
+    -o UserKnownHostsFile=/dev/null \
+    -o LogLevel=ERROR \
+    -o HostKeyAlgorithms=+ssh-rsa \
+    -o PubkeyAcceptedKeyTypes=+ssh-rsa \
+    $user@$host
+
+# Handle password prompt
+expect {
+    "password:" {
+        send "$pass\r"
+    }
+    eof {
+        puts "Error: SSH connection closed before password prompt."
+        exit 1
+    }
+    timeout {
+        puts "Error: Timed out waiting for password prompt."
+        exit 1
+    }
+}
+
+# Handle WAP / CLI prompt (matches 'WAP>', '>', or '#')
+expect {
+    -re "(WAP>|>|#)" {
+        send "display bbsp stats wan\r"
+    }
+    eof {
+        puts "Error: SSH connection closed before initial WAP prompt."
+        exit 1
+    }
+    timeout {
+        puts "Error: Timed out waiting for initial WAP prompt."
+        exit 1
+    }
+}
+
+# Wait for output to complete and the prompt to return
+expect {
+    -re "(WAP>|>|#)" {
+        send "quit\r"
+    }
+    eof {
+        puts "Error: SSH connection closed before command output completed."
+        exit 1
+    }
+    timeout {
+        puts "Error: Timed out waiting for command execution."
+        exit 1
+    }
+}
+
+# Wait for process EOF
+expect eof
