@@ -3,7 +3,7 @@
 # ==============================================================================
 # Huawei ONT bandwidth exporter for Home Assistant
 #
-# Connects to the Huawei ONT over SSH (via expect), reads the WAN packet
+# Connects to the Huawei ONT over SSH (via sshpass), reads the WAN packet
 # statistics, subtracts the per-frame wire overhead, and pushes the corrected
 # byte counters to the Home Assistant REST API.
 #
@@ -27,7 +27,7 @@ set -u
 : "${HA_PORT:=8123}"
 : "${HA_SCHEME:=http}"
 : "${WAN_INTERFACE:=wan1}"
-: "${EXPECT_SCRIPT:=/app/get_stats.exp}"
+: "${STATS_SCRIPT:=/app/get_stats.sh}"
 
 # Per-frame overhead deduction. Each frame on the wire carries bytes that are
 # not user data; the ONT's byte counters include them, the frame counters do
@@ -64,13 +64,13 @@ OVERHEAD_PER_FRAME=$((38 + VLAN_BYTES + PPPOE_BYTES))
 export ONT_HOST ONT_USER ONT_PASS
 
 # ------------------------------------------------------------------------------
-# 1. Execute expect & parse the stats
+# 1. Execute sshpass & parse the stats
 # ------------------------------------------------------------------------------
-RAW_OUTPUT=$(expect "$EXPECT_SCRIPT" 2>&1)
-EXPECT_EXIT_CODE=$?
+RAW_OUTPUT=$("$STATS_SCRIPT" 2>&1)
+STATS_EXIT_CODE=$?
 
-if [ "$EXPECT_EXIT_CODE" -ne 0 ]; then
-    log "ERROR" "Expect script failed with exit code $EXPECT_EXIT_CODE"
+if [ "$STATS_EXIT_CODE" -ne 0 ]; then
+    log "ERROR" "Stats script failed with exit code $STATS_EXIT_CODE"
     exit 1
 fi
 
