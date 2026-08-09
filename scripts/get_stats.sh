@@ -1,15 +1,16 @@
 #!/bin/sh
 
 # ==============================================================================
-# Huawei ONT stats collector (sshpass)
+# Huawei ONT stats collector (dbclient)
 # Connects over SSH non-interactively and runs: display bbsp stats wan
 # Credentials are read from the environment (ONT_HOST / ONT_USER / ONT_PASS).
 #
 # The ONT's WAP shell does NOT accept a remote command (its Dropbear resets on
-# the SSH exec request), so we drive it interactively through a pty. Instead of
-# blind sleeps, the session output is watched: we only type the command once
-# the WAP> prompt has appeared, and only quit once the output has finished
-# ("success!" is printed by the ONT after the stats).
+# the SSH exec request), so the command is typed into the interactive session.
+# dbclient authenticates with the password from DROPBEAR_PASSWORD and runs the
+# session without a pty (-T), which the WAP shell accepts in line mode. A
+# feeder watches the session output and types the command and quit at the right
+# moments instead of relying on fixed sleeps.
 # ==============================================================================
 
 set -u
@@ -22,8 +23,8 @@ set -u
 # within a second on healthy firmware). Configurable via the environment.
 : "${PROMPT_TIMEOUT:=15}"
 : "${OUTPUT_TIMEOUT:=20}"
-# The WAP shell sometimes drops input typed right at the prompt boundary, so
-# the command is (re)sent until stats come back. Number of attempts.
+# The WAP shell sometimes drops input typed at the prompt boundary, so the
+# command is (re)sent until stats come back. Number of attempts.
 : "${COMMAND_ATTEMPTS:=3}"
 # The ONT allows a single SSH session and holds it for a while after quit, so
 # a new login may hit "The number of sessions exceeds...". When set, the
@@ -37,22 +38,17 @@ mkfifo "$CMD_FIFO"
 trap 'rm -rf "$WORKDIR"' EXIT
 
 # SSH session: commands arrive via the fifo, all output goes to OUT_FILE
-timeout 45 env SSHPASS="$ONT_PASS" sshpass -e ssh -tt \
-    -o ConnectTimeout=10 \
-    -o StrictHostKeyChecking=no \
-    -o UserKnownHostsFile=/dev/null \
-    -o LogLevel=ERROR \
-    -o HostKeyAlgorithms=+ssh-rsa \
-    -o PubkeyAcceptedKeyTypes=+ssh-rsa \
-    "$ONT_USER@$ONT_HOST" < "$CMD_FIFO" > "$OUT_FILE" 2>&1 &
-SSH_PID=$!
+timeout 45 env DROPBEAR_PASSWORD="$ONT_PASS" \
+    dbclient -y -y -T "$ONT_USER@$ONT_HOST" \
+    < "$CMD_FIFO" > "$OUT_FILE" 2>&1 &
+SESSION_PID=$!
 
-# Feeder: watches the session output and sends commands at the right moment.
-# Holds the fifo open for the whole session so ssh never sees an early EOF.
+# Feeder: watches the session output and sends input at the right moment.
+# Holds the fifo open for the whole session so dbclient never sees early EOF.
 (
     # Wait for the WAP> prompt before typing (early input is silently dropped).
-    # If the ONT reports too many SSH sessions, remove the listed stale
-    # session so the new login can proceed.
+    # If the ONT reports too many SSH sessions, remove the listed stale session
+    # so the new login can proceed.
     ELAPSED=0
     while [ "$ELAPSED" -lt "$PROMPT_TIMEOUT" ]; do
         grep -q 'WAP>' "$OUT_FILE" 2>/dev/null && break
@@ -73,6 +69,7 @@ SSH_PID=$!
     done
     grep -q 'WAP>' "$OUT_FILE" 2>/dev/null || exit 1
 
+    # Send the command, re-sending until stats come back
     printf 'display bbsp stats wan\r'
     ATTEMPT=1
     while [ "$ATTEMPT" -lt "$COMMAND_ATTEMPTS" ]; do
@@ -94,12 +91,12 @@ SSH_PID=$!
 ) > "$CMD_FIFO" &
 FEEDER_PID=$!
 
-wait "$SSH_PID"
+wait "$SESSION_PID"
 kill "$FEEDER_PID" 2>/dev/null
 wait "$FEEDER_PID" 2>/dev/null
 
-# The ONT's Dropbear exits non-zero even on a clean session close, so judge
-# success by whether the command output actually came back.
+# dbclient exits non-zero even on a clean session close, so judge success by
+# whether the command output actually came back.
 if grep -q 'packet statistic' "$OUT_FILE"; then
     cat "$OUT_FILE"
     exit 0

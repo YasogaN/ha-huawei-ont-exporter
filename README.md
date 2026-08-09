@@ -6,23 +6,23 @@ BytesReceived) from a Huawei ONT/GPON router over SSH and pushes them to
 
 Most ISPs disable SNMP on their CPEs, so you can't query traffic counters that
 way. Huawei ONTs still expose them through the management CLI, which this tool
-automates over SSH with `sshpass`.
+automates over SSH with Dropbear's `dbclient`.
 
 ## How it works
 
 ```mermaid
 flowchart LR
     A["Huawei ONT<br/>(WAP CLI)"] -->|"SSH<br/>display bbsp stats wan"| B["Exporter container<br/>get_stats.sh + main.sh"]
-    B -->|"sshpass + awk<br/>parse &amp; deduct overhead"| C["Home Assistant<br/>REST API"]
+    B -->|"dbclient + awk<br/>parse &amp; deduct overhead"| C["Home Assistant<br/>REST API"]
     C --> D["sensor.huawei_ont_bytes_received<br/>sensor.huawei_ont_bytes_sent<br/>sensor.huawei_ont_bytes_total"]
 ```
 
-1. `get_stats.sh` logs into the ONT over SSH with `sshpass` (including the
-   legacy `ssh-rsa` key support these routers require) and runs
+1. `get_stats.sh` logs into the ONT over SSH with Dropbear's `dbclient`
+   (password supplied via `DROPBEAR_PASSWORD`, so no `sshpass` needed) and runs
    `display bbsp stats wan`. The ONT's WAP shell does not accept remote
-   commands, so the command is typed through an interactive pty session — the
-   script waits for the `WAP>` prompt before typing and for the ONT's
-   `success!` before logging out, so it is immune to connection timing.
+   commands, so the command is typed into the session — the script waits for
+   the `WAP>` prompt before typing and for the ONT's `success!` before logging
+   out, so it is immune to connection timing.
 2. `main.sh` parses the output with `awk`, extracting the byte and frame
    counters for a configurable WAN interface (default `wan1`).
 3. The per-frame wire overhead (framing, VLAN, PPPoE) is deducted to get the
@@ -36,12 +36,12 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 
 | File                      | Purpose                                                  |
 | ------------------------- | -------------------------------------------------------- |
-| `Dockerfile`              | Alpine-based image (~13 MB) with sshpass, ssh, wget      |
+| `Dockerfile`              | Alpine-based image (~9 MB) with dropbear dbclient and wget      |
 | `docker-compose.yml`      | Compose deployment (env file, restart, healthcheck)      |
 | `Makefile`                | `make build/run/logs/status/stop/once/shell`             |
 | `scripts/entrypoint.sh`   | Polling loop with failure backoff, or a one-shot command |
-| `scripts/main.sh`         | sshpass + parse + deduct overhead + push to HA           |
-| `scripts/get_stats.sh`    | sshpass/SSH session against the ONT CLI                  |
+| `scripts/main.sh`         | dbclient + parse + deduct overhead + push to HA           |
+| `scripts/get_stats.sh`    | dbclient SSH session against the ONT CLI                  |
 | `scripts/healthcheck.sh`  | Container healthcheck (last successful run freshness)    |
 | `.env.example`            | Template for the required environment variables          |
 
@@ -244,10 +244,9 @@ Common causes:
   `display bbsp stats wan` manually and check which WAN you want
   (`wan1`, `wan2`, ...). The sample output at the end of this README shows
   `wan1` as the WAN with real traffic.
-- The ONT firmware rejects the legacy key exchange — the exporter already
-  enables `+ssh-rsa` for both host keys and pubkey auth; on very old firmware
-  you may also need `KexAlgorithms=+diffie-hellman-group1-sha1`
-  (`main.sh` doesn't need to change, only `get_stats.sh`).
+- The ONT uses legacy `ssh-rsa` host keys — Dropbear's `dbclient` supports them
+  out of the box (no extra options needed), so this only matters if you test
+  with a modern OpenSSH client directly.
 - If the prompt is slow to appear, the exporter gives up after
   `PROMPT_TIMEOUT` (default 15 s) and after `OUTPUT_TIMEOUT` (default 20 s)
   waiting for the command output — tune these via the environment if needed.

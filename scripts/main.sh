@@ -3,7 +3,7 @@
 # ==============================================================================
 # Huawei ONT bandwidth exporter for Home Assistant
 #
-# Connects to the Huawei ONT over SSH (via sshpass), reads the WAN packet
+# Connects to the Huawei ONT over SSH (via dbclient), reads the WAN packet
 # statistics, subtracts the per-frame wire overhead, and pushes the corrected
 # byte counters to the Home Assistant REST API.
 #
@@ -81,7 +81,7 @@ log "INFO" "       vlan=${VLAN_ENABLED} pppoe=${PPPOE_ENABLED} overhead=${OVERHE
 export ONT_HOST ONT_USER ONT_PASS
 
 # ------------------------------------------------------------------------------
-# 1. Execute sshpass & parse the stats
+# 1. Collect stats & parse
 # ------------------------------------------------------------------------------
 RAW_OUTPUT=$("$STATS_SCRIPT" 2>&1)
 STATS_EXIT_CODE=$?
