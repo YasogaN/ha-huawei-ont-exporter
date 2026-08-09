@@ -34,13 +34,16 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 
 ## What's inside
 
-| File                  | Purpose                                              |
-| --------------------- | ---------------------------------------------------- |
-| `Dockerfile`            | Alpine-based image (~20 MB) with sshpass, ssh, wget |
-| `scripts/entrypoint.sh` | Runs the exporter loop, or a one-shot command       |
-| `scripts/main.sh`       | sshpass + parse + deduct overhead + push to HA      |
-| `scripts/get_stats.sh`  | sshpass/SSH session against the ONT CLI             |
-| `.env.example`          | Template for the required environment variables     |
+| File                      | Purpose                                                  |
+| ------------------------- | -------------------------------------------------------- |
+| `Dockerfile`              | Alpine-based image (~13 MB) with sshpass, ssh, wget      |
+| `docker-compose.yml`      | Compose deployment (env file, restart, healthcheck)      |
+| `Makefile`                | `make build/run/logs/status/stop/once/shell`             |
+| `scripts/entrypoint.sh`   | Polling loop with failure backoff, or a one-shot command |
+| `scripts/main.sh`         | sshpass + parse + deduct overhead + push to HA           |
+| `scripts/get_stats.sh`    | sshpass/SSH session against the ONT CLI                  |
+| `scripts/healthcheck.sh`  | Container healthcheck (last successful run freshness)    |
+| `.env.example`            | Template for the required environment variables          |
 
 ## Prerequisites
 
@@ -83,8 +86,29 @@ docker run -d --name huawei-ont-exporter \
   huawei-ont-exporter
 ```
 
+Or with Docker/Podman Compose:
+
+```sh
+docker compose up -d     # or: podman-compose up -d
+```
+
+Or with the Makefile (build/run/logs/status/stop/once/shell):
+
+```sh
+make build && make run && make status
+```
+
 The container runs as a non-root user and never needs to expose or publish any
 ports — it only makes outbound SSH and HTTP connections.
+
+The image has a built-in `HEALTHCHECK` that reports healthy while the last
+successful poll is recent (see `STATUS_FILE` / `HEALTHCHECK_MAX_AGE`), so
+`podman ps` shows real health:
+
+```
+NAMES                      STATUS                     HEALTH
+huawei-ont-exporter        Up 2 hours (healthy)       healthy
+```
 
 ### Check it's working
 
@@ -118,11 +142,41 @@ defaults.
 | `ONT_USER`       | _(required)_  | SSH user for the ONT                                     |
 | `ONT_PASS`       | _(required)_  | SSH password for the ONT                                 |
 | `WAN_INTERFACE`  | `wan1`        | WAN interface to read counters from (`wan1`/`wan2`/...)  |
-| `INTERVAL`       | `60`          | Seconds between polling cycles (loop mode only)          |
+| `INTERVAL`       | `60`          | Seconds between polling cycles (loop mode only; **min 60**) |
 | `VLAN_ENABLED`   | `true`        | Deduct the 4 B 802.1Q VLAN tag per frame (see below)     |
 | `PPPOE_ENABLED`  | `false`       | Deduct the 8 B PPPoE encapsulation per frame (see below) |
+| `DRY_RUN`        | `false`       | Read + log stats but do not push anything to Home Assistant |
+| `TZ`             | `UTC`         | IANA timezone for log timestamps (e.g. `Asia/Colombo`)   |
+| `MAX_BACKOFF`    | `3600`        | Cap (seconds) on the exponential backoff after failures  |
 | `PROMPT_TIMEOUT` | `15`          | Max seconds to wait for the `WAP>` prompt before giving up |
 | `OUTPUT_TIMEOUT` | `20`          | Max seconds to wait for the command output before quitting |
+| `COMMAND_ATTEMPTS`| `3`          | Re-send the command until stats come back (drops happen) |
+| `AUTO_KILL_SESSIONS`| `true`      | Auto-remove a stale SSH session when the ONT's one-session limit is hit |
+| `STATUS_FILE`    | `/tmp/huawei_ont_exporter_status` | File stamped with the last successful run (healthcheck) |
+| `HEALTHCHECK_MAX_AGE` | `300`    | Max age (seconds) of the status file for a healthy check |
+
+## Running it once / testing
+
+Read the stats from your ONT **without touching Home Assistant** (useful to
+validate your `ONT_*` settings, VLAN/PPPoE flags, and WAN interface):
+
+```sh
+DRY_RUN=true podman run --rm --env-file .env huawei-ont-exporter /app/main.sh
+```
+
+You'll see the config summary, the parsed stats, and what would have been
+pushed. Every run logs a startup config summary with the effective settings
+(secrets only shown by length, never their values).
+
+Prefer not to keep the container running? Run a one-shot and let your own cron
+or systemd timer handle the schedule:
+
+```sh
+podman run --rm --env-file .env huawei-ont-exporter /app/main.sh
+```
+
+The entrypoint runs any command passed to it; with no command it enters the
+polling loop. `INTERVAL` is ignored in one-shot mode.
 
 ## Overhead deduction
 
@@ -171,18 +225,6 @@ down/up rates (e.g. for the energy & data dashboards).
 > increasing and may be huge (hundreds of GB), keep `state_class:
 > total_increasing` — Home Assistant computes deltas for you.
 
-## Running it once / scheduling externally
-
-Prefer not to keep the container running? Run a one-shot and let your own cron
-or systemd timer handle the schedule:
-
-```sh
-podman run --rm --env-file .env huawei-ont-exporter /app/main.sh
-```
-
-The entrypoint runs any command passed to it; with no command it enters the
-polling loop. `INTERVAL` is ignored in one-shot mode.
-
 ## Troubleshooting
 
 **`Stats script failed with exit code 1`**
@@ -210,6 +252,13 @@ Common causes:
 - If the prompt is slow to appear, the exporter gives up after
   `PROMPT_TIMEOUT` (default 15 s) and after `OUTPUT_TIMEOUT` (default 20 s)
   waiting for the command output — tune these via the environment if needed.
+
+**`The number of sessions exceeds the specifications`**
+The ONT allows only **one** SSH session at a time and holds it briefly after
+each poll. When a new login hits that limit, the exporter answers the prompt
+to remove the listed stale session automatically (`AUTO_KILL_SESSIONS=true`,
+the default). If you'd rather it just fail and retry with backoff instead,
+set `AUTO_KILL_SESSIONS=false`.
 
 **`Expected stats but got 0`**
 Check the `overhead_per_frame` in the log. If you set `VLAN_ENABLED` or
