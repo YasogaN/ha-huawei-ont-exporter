@@ -55,6 +55,17 @@ normalize_bool() {
     esac
 }
 
+# Normalize an URL scheme to lowercase 'http'/'https'; fail on anything else.
+normalize_scheme() {
+    var="$1"
+    eval "value=\${$var-}"
+    lc=$(printf '%s' "$value" | tr '[:upper:]' '[:lower:]')
+    case "$lc" in
+        http|https) eval "$var=$lc" ;;
+        *) config_error "$var must be http or https (got '$value')" ;;
+    esac
+}
+
 # ------------------------------------------------------------------------------
 # Defaults
 # ------------------------------------------------------------------------------
@@ -106,6 +117,7 @@ normalize_bool DRY_RUN
 normalize_bool VLAN_ENABLED
 normalize_bool PPPOE_ENABLED
 normalize_bool AUTO_KILL_SESSIONS
+normalize_scheme HA_SCHEME
 
 # ------------------------------------------------------------------------------
 # Range validation

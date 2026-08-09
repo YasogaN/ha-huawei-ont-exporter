@@ -212,6 +212,25 @@ else
     echo "note - golden file missing; wrote $GOLDEN (commit it)"
 fi
 
+# --- config.sh scheme validation -------------------------------------------
+
+# config_error exits, so run config.sh in a subshell and capture its exit code.
+# The `if !` guard keeps `set -e` from aborting before the result is echoed.
+scheme_exit_code() {
+    if ! ( HA_SCHEME="$1"; . ./scripts/config.sh ) >/dev/null 2>&1; then
+        echo 1
+    else
+        echo 0
+    fi
+}
+
+assert_eq "scheme http accepted" "0" "$(scheme_exit_code http)"
+assert_eq "scheme https accepted" "0" "$(scheme_exit_code https)"
+assert_eq "scheme HTTPS normalized to lowercase" "0" "$(scheme_exit_code HTTPS)"
+assert_eq "scheme ftp rejected" "1" "$(scheme_exit_code ftp)"
+# `: "${HA_SCHEME:=http}"` defaults empty values, so '' is valid (becomes http).
+assert_eq "scheme empty defaults to http" "0" "$(scheme_exit_code '')"
+
 echo
 if [ "$FAIL" -eq 0 ]; then
     echo "All $PASS tests passed."
