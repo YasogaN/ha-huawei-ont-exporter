@@ -6,19 +6,23 @@ BytesReceived) from a Huawei ONT/GPON router over SSH and pushes them to
 
 Most ISPs disable SNMP on their CPEs, so you can't query traffic counters that
 way. Huawei ONTs still expose them through the management CLI, which this tool
-automates with `expect`.
+automates over SSH with `sshpass`.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    A["Huawei ONT<br/>(WAP CLI)"] -->|"SSH<br/>display bbsp stats wan"| B["Exporter container<br/>get_stats.exp + main.sh"]
-    B -->|"expect + awk<br/>parse &amp; deduct overhead"| C["Home Assistant<br/>REST API"]
+    A["Huawei ONT<br/>(WAP CLI)"] -->|"SSH<br/>display bbsp stats wan"| B["Exporter container<br/>get_stats.sh + main.sh"]
+    B -->|"sshpass + awk<br/>parse &amp; deduct overhead"| C["Home Assistant<br/>REST API"]
     C --> D["sensor.huawei_ont_bytes_received<br/>sensor.huawei_ont_bytes_sent<br/>sensor.huawei_ont_bytes_total"]
 ```
 
-1. `get_stats.exp` logs into the ONT over SSH (with legacy `ssh-rsa` key
-   support that these routers require) and runs `display bbsp stats wan`.
+1. `get_stats.sh` logs into the ONT over SSH with `sshpass` (including the
+   legacy `ssh-rsa` key support these routers require) and runs
+   `display bbsp stats wan`. The ONT's WAP shell does not accept remote
+   commands, so the command is typed through an interactive pty session — the
+   script waits for the `WAP>` prompt before typing and for the ONT's
+   `success!` before logging out, so it is immune to connection timing.
 2. `main.sh` parses the output with `awk`, extracting the byte and frame
    counters for a configurable WAN interface (default `wan1`).
 3. The per-frame wire overhead (framing, VLAN, PPPoE) is deducted to get the
@@ -32,11 +36,11 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 
 | File                  | Purpose                                              |
 | --------------------- | ---------------------------------------------------- |
-| `Dockerfile`          | Alpine-based image (~26 MB) with expect, ssh, curl   |
-| `scripts/entrypoint.sh` | Runs the exporter loop, or a one-shot command      |
-| `scripts/main.sh`     | expect + parse + deduct overhead + push to HA        |
-| `scripts/get_stats.exp` | SSH/expect session against the ONT CLI             |
-| `.env.example`        | Template for the required environment variables      |
+| `Dockerfile`            | Alpine-based image (~22 MB) with sshpass, ssh, curl |
+| `scripts/entrypoint.sh` | Runs the exporter loop, or a one-shot command       |
+| `scripts/main.sh`       | sshpass + parse + deduct overhead + push to HA      |
+| `scripts/get_stats.sh`  | sshpass/SSH session against the ONT CLI             |
+| `.env.example`          | Template for the required environment variables     |
 
 ## Prerequisites
 
@@ -117,6 +121,8 @@ defaults.
 | `INTERVAL`       | `60`          | Seconds between polling cycles (loop mode only)          |
 | `VLAN_ENABLED`   | `true`        | Deduct the 4 B 802.1Q VLAN tag per frame (see below)     |
 | `PPPOE_ENABLED`  | `false`       | Deduct the 8 B PPPoE encapsulation per frame (see below) |
+| `PROMPT_TIMEOUT` | `15`          | Max seconds to wait for the `WAP>` prompt before giving up |
+| `OUTPUT_TIMEOUT` | `20`          | Max seconds to wait for the command output before quitting |
 
 ## Overhead deduction
 
@@ -179,16 +185,20 @@ polling loop. `INTERVAL` is ignored in one-shot mode.
 
 ## Troubleshooting
 
-**`Expect script failed with exit code 1`**
-Run the expect script directly to see the raw error:
+**`Stats script failed with exit code 1`**
+Run the SSH script directly to see the raw error:
 
 ```sh
-podman run --rm --env-file .env huawei-ont-exporter /usr/bin/expect /app/get_stats.exp
+podman run --rm --env-file .env huawei-ont-exporter /app/get_stats.sh
 ```
 
 Common causes:
 
 - Wrong `ONT_HOST` / `ONT_USER` / `ONT_PASS`.
+- `Connection reset by peer` immediately after login — this is the ONT's
+  Dropbear resetting on the SSH exec request. This is expected for remote
+  commands; the exporter deliberately drives the WAP shell interactively
+  instead, so ignore it if you see it while testing other tools.
 - The ONT's WAN interfaces have different names — run
   `display bbsp stats wan` manually and check which WAN you want
   (`wan1`, `wan2`, ...). The sample output at the end of this README shows
@@ -196,7 +206,10 @@ Common causes:
 - The ONT firmware rejects the legacy key exchange — the exporter already
   enables `+ssh-rsa` for both host keys and pubkey auth; on very old firmware
   you may also need `KexAlgorithms=+diffie-hellman-group1-sha1`
-  (`main.sh` doesn't need to change, only `get_stats.exp`).
+  (`main.sh` doesn't need to change, only `get_stats.sh`).
+- If the prompt is slow to appear, the exporter gives up after
+  `PROMPT_TIMEOUT` (default 15 s) and after `OUTPUT_TIMEOUT` (default 20 s)
+  waiting for the command output — tune these via the environment if needed.
 
 **`Expected stats but got 0`**
 Check the `overhead_per_frame` in the log. If you set `VLAN_ENABLED` or
