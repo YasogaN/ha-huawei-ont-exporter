@@ -20,6 +20,7 @@ After=network-online.target
 Image=ghcr.io/yasogan/ha-huawei-ont-exporter:latest
 ContainerName=huawei-ont-exporter
 EnvironmentFile=/etc/huawei-ont-exporter/.env
+Volume=/etc/localtime:/etc/localtime:ro
 HealthCmd=/app/healthcheck.sh
 HealthInterval=60s
 HealthTimeout=5s

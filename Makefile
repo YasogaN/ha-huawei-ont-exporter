@@ -9,7 +9,8 @@ build:
 
 ## run: start the exporter as a background container
 run:
-	podman run -d --name $(IMAGE) --restart unless-stopped --env-file $(ENV_FILE) $(IMAGE)
+	podman run -d --name $(IMAGE) --restart unless-stopped --env-file $(ENV_FILE) \
+		-v /etc/localtime:/etc/localtime:ro $(IMAGE)
 
 ## once: run a single export cycle (good for testing)
 once:

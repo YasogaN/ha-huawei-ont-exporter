@@ -80,6 +80,7 @@ podman build -t huawei-ont-exporter .
 podman run -d --name huawei-ont-exporter \
   --restart unless-stopped \
   --env-file .env \
+  -v /etc/localtime:/etc/localtime:ro \
   huawei-ont-exporter
 ```
 
@@ -89,8 +90,11 @@ With Docker:
 docker run -d --name huawei-ont-exporter \
   --restart unless-stopped \
   --env-file .env \
+  -v /etc/localtime:/etc/localtime:ro \
   huawei-ont-exporter
 ```
+
+The `-v /etc/localtime:/etc/localtime:ro` mount makes log timestamps local; without it, logs are in UTC. The compose, Quadlet and Makefile examples below already include it.
 
 Or with Docker/Podman Compose:
 
