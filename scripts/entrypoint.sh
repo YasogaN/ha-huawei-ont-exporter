@@ -20,7 +20,7 @@ fi
 # shellcheck disable=SC1091  # config.sh is linted separately (scripts/*.sh)
 . "$(dirname "$0")/config.sh"
 
-require HA_TOKEN ONT_HOST ONT_USER ONT_PASS
+require HA_IP HA_TOKEN ONT_HOST ONT_USER ONT_PASS
 
 # The ONT only allows one SSH session and holds it briefly after each poll, so
 # never poll faster than once a minute (enforced in config.sh).
