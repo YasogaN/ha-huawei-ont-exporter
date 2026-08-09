@@ -174,7 +174,7 @@ All settings are environment variables, provided via `--env-file .env` (see `.en
 | `AUTO_KILL_SESSIONS`  | `true`                            | Auto-remove a stale SSH session when the ONT's one-session limit is hit          |
 | `CLOSE_GRACE`         | `3`                               | Seconds to wait after `quit` for the ONT to close before the session is force-killed |
 | `STATUS_FILE`         | `/tmp/huawei_ont_exporter_status` | File stamped with the last successful run (healthcheck)                          |
-| `HEALTHCHECK_MAX_AGE` | `300`                             | Max age (seconds) of the status file for a healthy check                         |
+| `HEALTHCHECK_MAX_AGE` | `300`                             | Max age (seconds) of the status file for a healthy check. Automatically raised to `INTERVAL` if set lower, so the container never flips unhealthy between successful polls |
 
 ## Running it once / testing
 
@@ -251,7 +251,7 @@ The behaviors the exporter accounts for were observed on this device: the `WAP>`
 
 **`Stats script failed with exit code 1`**
 
-Run the SSH script directly to see the raw error:
+The exporter logs the raw SSH session output right after this line (wrapped in `=== FAILURE SESSION LOG ===` markers), so check the container logs first. To reproduce the failure directly, run the SSH script by hand:
 
 ```sh
 podman run --rm --env-file .env huawei-ont-exporter /app/get_stats.sh
@@ -278,13 +278,17 @@ Check the `overhead_per_frame` in the log. If you set `VLAN_ENABLED` or `PPPOE_E
 
 The ONT did not report that interface. Set `WAN_INTERFACE` to an interface that actually exists (check with `display bbsp stats wan`).
 
-**`Home Assistant returned HTTP 401`**
+**`Push sensor.huawei_ont_* rejected (HTTP 401 - check HA_TOKEN)`**
 
 Bad or expired `HA_TOKEN`. The token needs the `read` and `write` scopes.
 
-**`Home Assistant returned HTTP 404`**
+**`Failed to push ... to Home Assistant (wget exit ...)`**
 
-Nothing to worry about — the entity does not exist yet and is created on the first successful push.
+The log line ends with the HTTP status returned by Home Assistant (e.g. `HTTP/1.1 500 Internal Server Error`), which tells you whether to fix the exporter or Home Assistant. A generic network failure shows `can't connect` instead.
+
+**`The sensors don't appear in Home Assistant yet`**
+
+The entities are created by the first successful push — the REST API `POST /api/states/<entity>` returns `200` and creates them on the fly. Run one cycle (`DRY_RUN=false`) and the three `sensor.huawei_ont_*` entities will show up. A `404` is not expected on the push; if you see it, double-check the `entity_id` format.
 
 ## Security notes
 
