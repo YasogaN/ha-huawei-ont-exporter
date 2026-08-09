@@ -48,17 +48,18 @@ log() {
     echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] $2"
 }
 
-bool_bytes() {
-    local var="$1" value="$2" bytes="$3"
-    case "$value" in
-        true|True|TRUE|1|yes|on)  echo "$bytes" ;;
-        false|False|FALSE|0|no|off) echo 0 ;;
-        *) log "ERROR" "Invalid $var value: '$value' (expected true/false)"; exit 1 ;;
-    esac
-}
+case "$VLAN_ENABLED" in
+    true|True|TRUE|1|yes|on)  VLAN_BYTES=4 ;;
+    false|False|FALSE|0|no|off) VLAN_BYTES=0 ;;
+    *) log "ERROR" "Invalid VLAN_ENABLED value: '$VLAN_ENABLED' (expected true/false)"; exit 1 ;;
+esac
 
-VLAN_BYTES=$(bool_bytes VLAN_ENABLED "$VLAN_ENABLED" 4)
-PPPOE_BYTES=$(bool_bytes PPPOE_ENABLED "$PPPOE_ENABLED" 8)
+case "$PPPOE_ENABLED" in
+    true|True|TRUE|1|yes|on)  PPPOE_BYTES=8 ;;
+    false|False|FALSE|0|no|off) PPPOE_BYTES=0 ;;
+    *) log "ERROR" "Invalid PPPOE_ENABLED value: '$PPPOE_ENABLED' (expected true/false)"; exit 1 ;;
+esac
+
 OVERHEAD_PER_FRAME=$((38 + VLAN_BYTES + PPPOE_BYTES))
 
 export ONT_HOST ONT_USER ONT_PASS
