@@ -1,11 +1,14 @@
-FROM alpine:3.21
+FROM alpine:3.23.5
 
 LABEL org.opencontainers.image.title="Huawei ONT Exporter" \
       org.opencontainers.image.description="Reads byte counters from a Huawei ONT over SSH and pushes them to Home Assistant as sensors" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.licenses="MIT"
 
-RUN apk add --no-cache dropbear-dbclient
+# dropbear >=2025 removed the legacy ssh-rsa host key algorithm that the ONT's
+# old Dropbear only offers, so pin the client from the v3.21 repo.
+RUN echo "@v321 https://dl-cdn.alpinelinux.org/alpine/v3.21/main" >> /etc/apk/repositories \
+    && apk add --no-cache dropbear-dbclient@v321
 
 WORKDIR /app
 

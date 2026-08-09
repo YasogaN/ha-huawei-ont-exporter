@@ -247,6 +247,9 @@ Common causes:
 - The ONT uses legacy `ssh-rsa` host keys — Dropbear's `dbclient` supports them
   out of the box (no extra options needed), so this only matters if you test
   with a modern OpenSSH client directly.
+- The `dbclient` in the image is pinned from the Alpine v3.21 repo: Dropbear
+  ≥2025 dropped the `ssh-rsa` algorithm entirely, which would make the client
+  unable to connect to the ONT's old SSH server at all.
 - If the prompt is slow to appear, the exporter gives up after
   `PROMPT_TIMEOUT` (default 15 s) and after `OUTPUT_TIMEOUT` (default 20 s)
   waiting for the command output — tune these via the environment if needed.
