@@ -14,3 +14,7 @@ updates:
       docker:
         patterns:
           - docker/*
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
