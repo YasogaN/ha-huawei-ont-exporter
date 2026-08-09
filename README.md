@@ -6,7 +6,7 @@ Most ISPs disable SNMP on their CPEs, so you can't query traffic counters that w
 
 ## Pre-built image (GHCR)
 
-Ready-made multi-arch images (amd64 + arm64) are published to GitHub Container Registry. `latest` is rebuilt on every push to `main`; versioned tags (`vX.Y.Z`) also get a GitHub Release with auto-generated notes.
+Ready-made multi-arch images (amd64 + arm64) are published to GitHub Container Registry when a version is tagged. Each `vX.Y.Z` tag publishes that version, updates `latest`, and creates a GitHub Release with auto-generated notes.
 
 ```sh
 podman pull ghcr.io/yasogan/ha-huawei-ont-exporter:latest
