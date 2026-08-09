@@ -1,7 +1,7 @@
 IMAGE ?= huawei-ont-exporter
 ENV_FILE ?= .env
 
-.PHONY: build run once logs status stop shell clean lint test
+.PHONY: build run once logs status stop shell clean lint test check help
 
 ## build: build the container image
 build:
@@ -12,6 +12,12 @@ lint:
 	command -v shellcheck >/dev/null 2>&1 && shellcheck scripts/*.sh \
 		|| podman run --rm -v $(CURDIR):/w:z -w /w docker.io/koalaman/shellcheck-alpine:latest \
 			sh -c 'shellcheck /w/scripts/*.sh'
+
+## check: everything CI runs - syntax check, shellcheck, and the unit tests
+check:
+	@for f in scripts/*.sh; do sh -n "$$f"; done
+	$(MAKE) lint
+	$(MAKE) test
 
 ## test: run the unit tests (awk parser, overhead math, golden payload)
 test:
