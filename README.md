@@ -43,9 +43,10 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 
 | File                     | Purpose                                                    |
 | ------------------------ | ---------------------------------------------------------- |
-| `Dockerfile`             | Alpine-based image (~9 MB) with dropbear dbclient and wget |
-| `docker-compose.yml`     | Compose deployment (env file, restart, healthcheck)        |
-| `Makefile`               | `make build/run/logs/status/stop/once/shell`               |
+| `Dockerfile`              | Alpine-based image (~9 MB) with dropbear dbclient and wget |
+| `docker-compose.yml`      | Compose deployment (env file, restart, healthcheck)      |
+| `huawei-ont-exporter.container` | Podman Quadlet unit (systemd-managed container)    |
+| `Makefile`                | `make build/run/logs/status/stop/once/shell`             |
 | `scripts/entrypoint.sh`  | Polling loop with failure backoff, or a one-shot command   |
 | `scripts/main.sh`        | dbclient + parse + deduct overhead + push to HA            |
 | `scripts/get_stats.sh`   | dbclient SSH session against the ONT CLI                   |
@@ -102,6 +103,20 @@ Or with the Makefile (build/run/logs/status/stop/once/shell):
 ```sh
 make build && make run && make status
 ```
+
+### Run as a systemd service (Podman Quadlet)
+
+For a native systemd setup, use the provided `huawei-ont-exporter.container` Quadlet unit:
+
+```sh
+sudo mkdir -p /etc/huawei-ont-exporter
+sudo cp .env /etc/huawei-ont-exporter/.env            # after editing it
+sudo cp huawei-ont-exporter.container /etc/containers/systemd/
+sudo systemctl daemon-reload
+sudo systemctl enable --now huawei-ont-exporter.service
+```
+
+Logs: `journalctl -u huawei-ont-exporter.service -f` · Status/health: `systemctl status huawei-ont-exporter.service`
 
 The container runs as a non-root user and never needs to expose or publish any ports — it only makes outbound SSH and HTTP connections.
 

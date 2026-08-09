@@ -1,0 +1,34 @@
+# Podman Quadlet unit for the Huawei ONT exporter.
+#
+# Install (system-wide, run as root):
+#   sudo mkdir -p /etc/huawei-ont-exporter
+#   sudo cp .env /etc/huawei-ont-exporter/.env        # after editing it
+#   sudo cp huawei-ont-exporter.container /etc/containers/systemd/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now huawei-ont-exporter.service
+#
+# Logs:   journalctl -u huawei-ont-exporter.service -f
+# Status: systemctl status huawei-ont-exporter.service
+# Health: systemctl status huawei-ont-exporter.service  (see Health column)
+
+[Unit]
+Description=Huawei ONT bandwidth exporter for Home Assistant
+Wants=network-online.target
+After=network-online.target
+
+[Container]
+Image=ghcr.io/yasogan/ha-huawei-ont-exporter:latest
+ContainerName=huawei-ont-exporter
+EnvironmentFile=/etc/huawei-ont-exporter/.env
+HealthCmd=/app/healthcheck.sh
+HealthInterval=60s
+HealthTimeout=5s
+HealthRetries=3
+HealthStartPeriod=90s
+
+[Service]
+Restart=always
+RestartSec=30
+
+[Install]
+WantedBy=multi-user.target

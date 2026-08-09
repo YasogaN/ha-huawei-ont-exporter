@@ -1,7 +1,9 @@
 services:
   huawei-ont-exporter:
-    build: .
-    image: huawei-ont-exporter:latest
+    # Pulls the published image from GHCR. To build locally instead, uncomment
+    # the line below (and drop the `image` if you want a local-only build):
+    # build: .
+    image: ghcr.io/yasogan/ha-huawei-ont-exporter:latest
     container_name: huawei-ont-exporter
     restart: unless-stopped
     env_file: .env
