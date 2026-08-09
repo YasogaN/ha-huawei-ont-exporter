@@ -36,7 +36,7 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 
 | File                  | Purpose                                              |
 | --------------------- | ---------------------------------------------------- |
-| `Dockerfile`            | Alpine-based image (~22 MB) with sshpass, ssh, curl |
+| `Dockerfile`            | Alpine-based image (~20 MB) with sshpass, ssh, wget |
 | `scripts/entrypoint.sh` | Runs the exporter loop, or a one-shot command       |
 | `scripts/main.sh`       | sshpass + parse + deduct overhead + push to HA      |
 | `scripts/get_stats.sh`  | sshpass/SSH session against the ONT CLI             |
@@ -112,7 +112,7 @@ defaults.
 | ---------------- | ------------- | -------------------------------------------------------- |
 | `HA_IP`          | _(required)_  | Home Assistant host IP                                   |
 | `HA_PORT`        | `8123`        | Home Assistant REST API port                             |
-| `HA_SCHEME`      | `http`        | `http` or `https` (use `https` with a reverse proxy)     |
+| `HA_SCHEME`      | `http`        | `http` or `https` (use `https` with a reverse proxy; the certificate must be trusted — busybox `wget` cannot skip validation for self-signed certs) |
 | `HA_TOKEN`       | _(required)_  | Home Assistant long-lived access token                   |
 | `ONT_HOST`       | _(required)_  | ONT management IP                                        |
 | `ONT_USER`       | _(required)_  | SSH user for the ONT                                     |

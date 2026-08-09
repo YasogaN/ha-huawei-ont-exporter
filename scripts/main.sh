@@ -126,32 +126,25 @@ log "INFO" "  received: raw=$BYTES_RECV B / ${FRAMES_RECV} frames -> $NET_RECV B
 # ------------------------------------------------------------------------------
 push_state() {
     local entity="$1" state="$2" name="$3" raw="$4" frames="$5"
-    local http_code
-    http_code=$(curl -sS -k -m 20 --retry 3 --retry-delay 2 --retry-all-errors \
-        -o /dev/null -w '%{http_code}' -X POST \
-        -H "Authorization: Bearer ${HA_TOKEN}" \
-        -H "Content-Type: application/json" \
-        -d "{
-            \"state\": \"${state}\",
-            \"attributes\": {
-              \"unit_of_measurement\": \"B\",
-              \"device_class\": \"data_size\",
-              \"state_class\": \"total_increasing\",
-              \"friendly_name\": \"${name}\",
-              \"raw_bytes\": ${raw},
-              \"frames\": ${frames},
-              \"overhead_per_frame\": ${OVERHEAD_PER_FRAME}
-            }
-          }" \
-        "${HA_SCHEME}://${HA_IP}:${HA_PORT}/api/states/${entity}") || {
-        log "ERROR" "Failed to reach Home Assistant while pushing ${entity}"
-        return 1
-    }
+    local payload attempt rc
+    payload=$(printf '{"state":"%s","attributes":{"unit_of_measurement":"B","device_class":"data_size","state_class":"total_increasing","friendly_name":"%s","raw_bytes":%s,"frames":%s,"overhead_per_frame":%d}}' \
+        "$state" "$name" "$raw" "$frames" "$OVERHEAD_PER_FRAME")
 
-    case "$http_code" in
-        2??) return 0 ;;
-        *)   log "ERROR" "Home Assistant returned HTTP ${http_code} for ${entity}"; return 1 ;;
-    esac
+    # busybox wget has no built-in retry; retry manually. Exit 0 on success,
+    # non-zero (network failure or HTTP error) otherwise.
+    for attempt in 1 2 3 4; do
+        wget -q -T 20 -O /dev/null \
+            --header="Authorization: Bearer ${HA_TOKEN}" \
+            --header="Content-Type: application/json" \
+            --post-data="$payload" \
+            "${HA_SCHEME}://${HA_IP}:${HA_PORT}/api/states/${entity}"
+        rc=$?
+        [ "$rc" -eq 0 ] && return 0
+        [ "$attempt" -lt 4 ] && sleep 2
+    done
+
+    log "ERROR" "Failed to push ${entity} to Home Assistant (wget exit $rc)"
+    return 1
 }
 
 FAILURES=0
