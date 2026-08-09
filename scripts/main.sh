@@ -57,6 +57,10 @@ STATS_EXIT_CODE=$?
 
 if [ "$STATS_EXIT_CODE" -ne 0 ]; then
     log "ERROR" "Stats script failed with exit code $STATS_EXIT_CODE"
+    # get_stats.sh wraps its failures in === FAILURE SESSION LOG === markers;
+    # surface that output here so the container logs show why it failed.
+    log "ERROR" "Session output:"
+    printf '%s\n' "$RAW_OUTPUT"
     exit 1
 fi
 
