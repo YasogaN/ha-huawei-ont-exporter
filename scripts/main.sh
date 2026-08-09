@@ -124,8 +124,9 @@ FRAMES_RECV=$(extract frames_received)
 # 2. Deduct per-frame wire overhead
 # ------------------------------------------------------------------------------
 deduct() {
-    local raw="$1" frames="$2"
-    local net=$((raw - frames * OVERHEAD_PER_FRAME))
+    raw="$1"
+    frames="$2"
+    net=$((raw - frames * OVERHEAD_PER_FRAME))
     if [ "$net" -lt 0 ]; then
         log "WARN" "Overhead deduction produced a negative value (raw=$raw frames=$frames); clamping to 0"
         net=0
@@ -147,8 +148,11 @@ log "INFO" "  received: raw=$BYTES_RECV B / ${FRAMES_RECV} frames -> $NET_RECV B
 # 3. Push to the Home Assistant API
 # ------------------------------------------------------------------------------
 push_state() {
-    local entity="$1" state="$2" name="$3" raw="$4" frames="$5"
-    local payload attempt rc
+    entity="$1"
+    state="$2"
+    name="$3"
+    raw="$4"
+    frames="$5"
     payload=$(printf '{"state":"%s","attributes":{"unit_of_measurement":"B","device_class":"data_size","state_class":"total_increasing","friendly_name":"%s","raw_bytes":%s,"frames":%s,"overhead_per_frame":%d}}' \
         "$state" "$name" "$raw" "$frames" "$OVERHEAD_PER_FRAME")
 

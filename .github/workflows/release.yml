@@ -24,6 +24,8 @@ jobs:
             echo "==> $f"
             sh -n "$f"
           done
+      - name: Shellcheck
+        run: shellcheck scripts/*.sh
 
   build-and-push:
     needs: check

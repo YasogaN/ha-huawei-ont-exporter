@@ -41,17 +41,17 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 
 ## What's inside
 
-| File                     | Purpose                                                    |
-| ------------------------ | ---------------------------------------------------------- |
-| `Dockerfile`              | Alpine-based image (~9 MB) with dropbear dbclient and wget |
-| `docker-compose.yml`      | Compose deployment (env file, restart, healthcheck)      |
-| `huawei-ont-exporter.container` | Podman Quadlet unit (systemd-managed container)    |
-| `Makefile`                | `make build/run/logs/status/stop/once/shell`             |
-| `scripts/entrypoint.sh`  | Polling loop with failure backoff, or a one-shot command   |
-| `scripts/main.sh`        | dbclient + parse + deduct overhead + push to HA            |
-| `scripts/get_stats.sh`   | dbclient SSH session against the ONT CLI                   |
-| `scripts/healthcheck.sh` | Container healthcheck (last successful run freshness)      |
-| `.env.example`           | Template for the required environment variables            |
+| File                            | Purpose                                                    |
+| ------------------------------- | ---------------------------------------------------------- |
+| `Dockerfile`                    | Alpine-based image (~9 MB) with dropbear dbclient and wget |
+| `docker-compose.yml`            | Compose deployment (env file, restart, healthcheck)        |
+| `huawei-ont-exporter.container` | Podman Quadlet unit (systemd-managed container)            |
+| `Makefile`                      | `make build/run/logs/status/stop/once/shell`               |
+| `scripts/entrypoint.sh`         | Polling loop with failure backoff, or a one-shot command   |
+| `scripts/main.sh`               | dbclient + parse + deduct overhead + push to HA            |
+| `scripts/get_stats.sh`          | dbclient SSH session against the ONT CLI                   |
+| `scripts/healthcheck.sh`        | Container healthcheck (last successful run freshness)      |
+| `.env.example`                  | Template for the required environment variables            |
 
 ## Prerequisites
 
