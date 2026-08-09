@@ -5,6 +5,11 @@ services:
     container_name: huawei-ont-exporter
     restart: unless-stopped
     env_file: .env
+    # Local-time log timestamps: mount the host's timezone. The image does not
+    # ship tzdata, so this is how the container learns the host timezone.
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /etc/timezone:/etc/timezone:ro
     healthcheck:
       test: ["CMD", "/app/healthcheck.sh"]
       interval: 60s

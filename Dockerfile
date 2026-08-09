@@ -7,8 +7,7 @@ LABEL org.opencontainers.image.title="Huawei ONT Exporter" \
 
 RUN apk add --no-cache \
     openssh-client \
-    sshpass \
-    tzdata
+    sshpass
 
 WORKDIR /app
 
