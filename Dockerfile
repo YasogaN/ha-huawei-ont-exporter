@@ -5,9 +5,17 @@ LABEL org.opencontainers.image.title="Huawei ONT Exporter" \
       org.opencontainers.image.version="1.0.0" \
       org.opencontainers.image.licenses="MIT"
 
-RUN apk add --no-cache \
-    openssh-client \
-    sshpass
+RUN apk add --no-cache openssh-client sshpass \
+    && rm -f \
+        /usr/bin/scp \
+        /usr/bin/sftp \
+        /usr/bin/ssh-add \
+        /usr/bin/ssh-agent \
+        /usr/bin/ssh-keyscan \
+        /usr/bin/ssh-keygen \
+        /usr/bin/ssh-pkcs11-helper \
+        /usr/bin/ssh-copy-id \
+        /usr/bin/findssl.sh
 
 WORKDIR /app
 
