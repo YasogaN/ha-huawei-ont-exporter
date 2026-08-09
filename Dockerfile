@@ -1,8 +1,10 @@
 FROM alpine:3.23.5
 
+ARG VERSION=dev
+
 LABEL org.opencontainers.image.title="Huawei ONT Exporter" \
       org.opencontainers.image.description="Reads byte counters from a Huawei ONT over SSH and pushes them to Home Assistant as sensors" \
-      org.opencontainers.image.version="1.0.0" \
+      org.opencontainers.image.version="$VERSION" \
       org.opencontainers.image.licenses="MIT"
 
 # dropbear >=2025 removed the legacy ssh-rsa host key algorithm that the ONT's

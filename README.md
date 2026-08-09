@@ -4,6 +4,22 @@ A lightweight containerized service that reads the byte counters (BytesSent / By
 
 Most ISPs disable SNMP on their CPEs, so you can't query traffic counters that way. Huawei ONTs still expose them through the management CLI, which this tool automates over SSH with Dropbear's `dbclient`.
 
+## Pre-built image (GHCR)
+
+Ready-made multi-arch images (amd64 + arm64) are published to GitHub Container Registry. `latest` is rebuilt on every push to `main`; versioned tags (`vX.Y.Z`) also get a GitHub Release with auto-generated notes.
+
+```sh
+podman pull ghcr.io/yasogan/ha-huawei-ont-exporter:latest
+# or pin a version
+podman pull ghcr.io/yasogan/ha-huawei-ont-exporter:1.0.0
+```
+
+Then run it as in [Quick start](#quick-start), using the pulled image name instead of building locally. To publish a new release, tag and push:
+
+```sh
+git tag v1.0.0 && git push origin v1.0.0
+```
+
 ## How it works
 
 ```mermaid
