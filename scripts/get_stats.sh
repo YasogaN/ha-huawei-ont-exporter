@@ -39,7 +39,7 @@ FEEDER_PID=
 WATCHER_PID=
 
 # Invoked via trap on EXIT/INT/TERM, which shellcheck does not track.
-# shellcheck disable=SC2329
+# shellcheck disable=SC2317,SC2329
 cleanup() {
     # Tear down any children still running: stop the feeder first so the fifo
     # write end closes (dbclient sees EOF on stdin), then the session itself.
