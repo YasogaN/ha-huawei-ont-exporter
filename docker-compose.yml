@@ -1,0 +1,13 @@
+services:
+  huawei-ont-exporter:
+    build: .
+    image: huawei-ont-exporter:latest
+    container_name: huawei-ont-exporter
+    restart: unless-stopped
+    env_file: .env
+    healthcheck:
+      test: ["CMD", "/app/healthcheck.sh"]
+      interval: 60s
+      timeout: 5s
+      retries: 3
+      start_period: 90s

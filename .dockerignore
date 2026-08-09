@@ -1,5 +1,9 @@
 .git
+.gitignore
 .opencode
 .env
-*.log
+.env.example
+docker-compose.yml
+Makefile
 README.md
+*.log
