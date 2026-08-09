@@ -216,6 +216,9 @@ fi
 
 # config_error exits, so run config.sh in a subshell and capture its exit code.
 # The `if !` guard keeps `set -e` from aborting before the result is echoed.
+# Variables set inside the subshell are intentional (env isolation); disable
+# the resulting warnings.
+# shellcheck disable=SC2030,SC2031
 scheme_exit_code() {
     if ! ( HA_SCHEME="$1"; . ./scripts/config.sh ) >/dev/null 2>&1; then
         echo 1
@@ -230,6 +233,20 @@ assert_eq "scheme HTTPS normalized to lowercase" "0" "$(scheme_exit_code HTTPS)"
 assert_eq "scheme ftp rejected" "1" "$(scheme_exit_code ftp)"
 # `: "${HA_SCHEME:=http}"` defaults empty values, so '' is valid (becomes http).
 assert_eq "scheme empty defaults to http" "0" "$(scheme_exit_code '')"
+
+# --- config.sh healthcheck/interval cross-validation ------------------------
+
+# config.sh warns and raises HEALTHCHECK_MAX_AGE when it would be shorter than
+# the poll interval (the healthcheck would otherwise flip unhealthy between
+# every successful poll). Re-source in a subshell and print the effective value.
+# shellcheck disable=SC2030,SC2031
+effective_health_max_age() {
+    ( INTERVAL="$1"; HEALTHCHECK_MAX_AGE="$2"; . ./scripts/config.sh; printf '%s' "$HEALTHCHECK_MAX_AGE" ) 2>/dev/null
+}
+
+assert_eq "max_age below interval is raised to interval" "600" "$(effective_health_max_age 600 300)"
+assert_eq "max_age equal to interval is kept" "600" "$(effective_health_max_age 600 600)"
+assert_eq "max_age above interval is kept" "900" "$(effective_health_max_age 600 900)"
 
 echo
 if [ "$FAIL" -eq 0 ]; then

@@ -129,3 +129,11 @@ if [ "$INTERVAL" -lt 60 ]; then
     config_warn "INTERVAL of ${INTERVAL}s is below the 60s minimum; using 60s"
     INTERVAL=60
 fi
+
+# The healthcheck reports unhealthy once the last successful run is older than
+# HEALTHCHECK_MAX_AGE. If that is shorter than the poll interval, the container
+# would flip unhealthy between every successful poll, so never let it be.
+if [ "$HEALTHCHECK_MAX_AGE" -lt "$INTERVAL" ]; then
+    config_warn "HEALTHCHECK_MAX_AGE of ${HEALTHCHECK_MAX_AGE}s is below INTERVAL (${INTERVAL}s); raising to ${INTERVAL}s"
+    HEALTHCHECK_MAX_AGE=$INTERVAL
+fi
