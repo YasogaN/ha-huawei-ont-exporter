@@ -7,8 +7,9 @@
 
 set -u
 
-: "${STATUS_FILE:=/tmp/huawei_ont_exporter_status}"
-: "${HEALTHCHECK_MAX_AGE:=300}"
+# Load all configuration (defaults, validation, normalization) from config.sh
+# shellcheck disable=SC1091  # config.sh is linted separately (scripts/*.sh)
+. "$(dirname "$0")/config.sh"
 
 if [ ! -f "$STATUS_FILE" ]; then
     echo "no successful run recorded yet"

@@ -49,6 +49,7 @@ The container loops forever, re-reading the counters every `INTERVAL` seconds.
 | `Makefile`                      | `make build/run/logs/status/stop/once/shell`               |
 | `scripts/entrypoint.sh`         | Polling loop with failure backoff, or a one-shot command   |
 | `scripts/main.sh`               | dbclient + parse + deduct overhead + push to HA            |
+| `scripts/config.sh`             | Central env handling: defaults, validation, normalization |
 | `scripts/get_stats.sh`          | dbclient SSH session against the ONT CLI                   |
 | `scripts/healthcheck.sh`        | Container healthcheck (last successful run freshness)      |
 | `.env.example`                  | Template for the required environment variables            |
@@ -169,6 +170,7 @@ All settings are environment variables, provided via `--env-file .env` (see `.en
 | `OUTPUT_TIMEOUT`      | `20`                              | Max seconds to wait for the command output before quitting                       |
 | `COMMAND_ATTEMPTS`    | `3`                               | Re-send the command until stats come back (drops happen)                         |
 | `AUTO_KILL_SESSIONS`  | `true`                            | Auto-remove a stale SSH session when the ONT's one-session limit is hit          |
+| `CLOSE_GRACE`         | `3`                               | Seconds to wait after `quit` for the ONT to close before the session is force-killed |
 | `STATUS_FILE`         | `/tmp/huawei_ont_exporter_status` | File stamped with the last successful run (healthcheck)                          |
 | `HEALTHCHECK_MAX_AGE` | `300`                             | Max age (seconds) of the status file for a healthy check                         |
 

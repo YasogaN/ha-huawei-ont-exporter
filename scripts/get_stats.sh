@@ -23,25 +23,11 @@
 
 set -u
 
-: "${ONT_HOST:?ONT_HOST is required}"
-: "${ONT_USER:?ONT_USER is required}"
-: "${ONT_PASS:?ONT_PASS is required}"
+# Load all configuration (defaults, validation, normalization) from config.sh
+# shellcheck disable=SC1091  # config.sh is linted separately (scripts/*.sh)
+. "$(dirname "$0")/config.sh"
 
-# Timeouts in seconds before giving up (should be plenty; the ONT responds
-# within a second on healthy firmware). Configurable via the environment.
-: "${PROMPT_TIMEOUT:=15}"
-: "${OUTPUT_TIMEOUT:=20}"
-# The WAP shell sometimes drops input typed at the prompt boundary, so the
-# command is (re)sent until stats come back. Number of attempts.
-: "${COMMAND_ATTEMPTS:=3}"
-# The ONT allows a single SSH session and holds it for a while after quit, so
-# a new login may hit "The number of sessions exceeds...". When set, the
-# exporter answers the prompt to remove the listed stale session automatically.
-: "${AUTO_KILL_SESSIONS:=true}"
-# Seconds to wait after `quit` for the remote to close before force-terminating
-# the connection. A hard kill drops the TCP link without a clean SSH close and
-# makes the ONT hold the session slot for a while, so keep this short.
-: "${CLOSE_GRACE:=3}"
+require ONT_HOST ONT_USER ONT_PASS
 
 WORKDIR=$(mktemp -d)
 OUT_FILE="$WORKDIR/session.log"

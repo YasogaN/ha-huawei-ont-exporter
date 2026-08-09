@@ -12,28 +12,15 @@
 
 set -u
 
-# ------------------------------------------------------------------------------
-# Required configuration
-# ------------------------------------------------------------------------------
-: "${HA_IP:?HA_IP is required}"
-: "${HA_TOKEN:?HA_TOKEN is required}"
-: "${ONT_HOST:?ONT_HOST is required}"
-: "${ONT_USER:?ONT_USER is required}"
-: "${ONT_PASS:?ONT_PASS is required}"
+# Load all configuration (defaults, validation, normalization) from config.sh
+# shellcheck disable=SC1091  # config.sh is linted separately (scripts/*.sh)
+. "$(dirname "$0")/config.sh"
 
-# ------------------------------------------------------------------------------
-# Optional configuration
-# ------------------------------------------------------------------------------
-: "${HA_PORT:=8123}"
-: "${HA_SCHEME:=http}"
-: "${WAN_INTERFACE:=wan1}"
-: "${STATS_SCRIPT:=/app/get_stats.sh}"
+require HA_IP HA_TOKEN ONT_HOST ONT_USER ONT_PASS
 
-# When true, stats are read and logged but nothing is pushed to Home Assistant.
-: "${DRY_RUN:=false}"
-# File stamped with the last successful run time (used by the container
-# healthcheck). Must be writable by the container user.
-: "${STATUS_FILE:=/tmp/huawei_ont_exporter_status}"
+log() {
+    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] $2"
+}
 
 # Per-frame overhead deduction. Each frame on the wire carries bytes that are
 # not user data; the ONT's byte counters include them, the frame counters do
@@ -46,31 +33,10 @@ set -u
 #   PPPoE           : PPPoE header (6) + PPP protocol ID (2) = 8 bytes when used
 #
 # VLAN tagging is enabled by default (near-universal on WAN services).
-# PPPoE is ISP-specific and off by default.
-: "${VLAN_ENABLED:=true}"
-: "${PPPOE_ENABLED:=false}"
-
-log() {
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [$1] $2"
-}
-
-case "$VLAN_ENABLED" in
-    true|True|TRUE|1|yes|on)  VLAN_BYTES=4 ;;
-    false|False|FALSE|0|no|off) VLAN_BYTES=0 ;;
-    *) log "ERROR" "Invalid VLAN_ENABLED value: '$VLAN_ENABLED' (expected true/false)"; exit 1 ;;
-esac
-
-case "$PPPOE_ENABLED" in
-    true|True|TRUE|1|yes|on)  PPPOE_BYTES=8 ;;
-    false|False|FALSE|0|no|off) PPPOE_BYTES=0 ;;
-    *) log "ERROR" "Invalid PPPOE_ENABLED value: '$PPPOE_ENABLED' (expected true/false)"; exit 1 ;;
-esac
-
-case "$DRY_RUN" in
-    true|True|TRUE|1|yes|on)  DRY_RUN_MODE=1 ;;
-    false|False|FALSE|0|no|off) DRY_RUN_MODE=0 ;;
-    *) log "ERROR" "Invalid DRY_RUN value: '$DRY_RUN' (expected true/false)"; exit 1 ;;
-esac
+# PPPoE is ISP-specific and off by default. Both are normalized to true/false
+# by config.sh.
+if [ "$VLAN_ENABLED" = true ]; then VLAN_BYTES=4; else VLAN_BYTES=0; fi
+if [ "$PPPOE_ENABLED" = true ]; then PPPOE_BYTES=8; else PPPOE_BYTES=0; fi
 
 OVERHEAD_PER_FRAME=$((38 + VLAN_BYTES + PPPOE_BYTES))
 
@@ -177,7 +143,7 @@ mark_success() {
     date +%s > "$STATUS_FILE" 2>/dev/null || true
 }
 
-if [ "$DRY_RUN_MODE" -eq 1 ]; then
+if [ "$DRY_RUN" = true ]; then
     log "INFO" "DRY RUN - skipping Home Assistant updates"
     log "INFO" "  would push received=$NET_RECV sent=$NET_SENT total=$NET_TOTAL"
     mark_success

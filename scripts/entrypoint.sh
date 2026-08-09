@@ -15,21 +15,15 @@ if [ "$#" -gt 0 ]; then
     exec "$@"
 fi
 
-: "${HA_TOKEN:?HA_TOKEN environment variable is required}"
-: "${ONT_HOST:?ONT_HOST environment variable is required}"
-: "${ONT_USER:?ONT_USER environment variable is required}"
-: "${ONT_PASS:?ONT_PASS environment variable is required}"
+# Load all configuration (defaults, validation, normalization) from config.sh.
+# Done after the one-shot exec above so one-shot runs are not double-validated.
+# shellcheck disable=SC1091  # config.sh is linted separately (scripts/*.sh)
+. "$(dirname "$0")/config.sh"
 
-INTERVAL="${INTERVAL:-60}"
-: "${MAX_BACKOFF:=3600}"
+require HA_TOKEN ONT_HOST ONT_USER ONT_PASS
 
 # The ONT only allows one SSH session and holds it briefly after each poll, so
-# never poll faster than once a minute.
-if [ "$INTERVAL" -lt 60 ]; then
-    echo "[$(date '+%Y-%m-%d %H:%M:%S')] [WARN] INTERVAL of ${INTERVAL}s is below the 60s minimum; using 60s"
-    INTERVAL=60
-fi
-
+# never poll faster than once a minute (enforced in config.sh).
 echo "[$(date '+%Y-%m-%d %H:%M:%S')] Starting Huawei ONT exporter loop (every ${INTERVAL}s)"
 
 FAILURES=0
