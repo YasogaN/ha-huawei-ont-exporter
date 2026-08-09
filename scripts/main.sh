@@ -29,6 +29,12 @@ set -u
 : "${WAN_INTERFACE:=wan1}"
 : "${STATS_SCRIPT:=/app/get_stats.sh}"
 
+# When true, stats are read and logged but nothing is pushed to Home Assistant.
+: "${DRY_RUN:=false}"
+# File stamped with the last successful run time (used by the container
+# healthcheck). Must be writable by the container user.
+: "${STATUS_FILE:=/tmp/huawei_ont_exporter_status}"
+
 # Per-frame overhead deduction. Each frame on the wire carries bytes that are
 # not user data; the ONT's byte counters include them, the frame counters do
 # not. Deduct per frame to get the real usable bytes.
@@ -60,7 +66,17 @@ case "$PPPOE_ENABLED" in
     *) log "ERROR" "Invalid PPPOE_ENABLED value: '$PPPOE_ENABLED' (expected true/false)"; exit 1 ;;
 esac
 
+case "$DRY_RUN" in
+    true|True|TRUE|1|yes|on)  DRY_RUN_MODE=1 ;;
+    false|False|FALSE|0|no|off) DRY_RUN_MODE=0 ;;
+    *) log "ERROR" "Invalid DRY_RUN value: '$DRY_RUN' (expected true/false)"; exit 1 ;;
+esac
+
 OVERHEAD_PER_FRAME=$((38 + VLAN_BYTES + PPPOE_BYTES))
+
+log "INFO" "Config: HA=${HA_SCHEME}://${HA_IP}:${HA_PORT} (token: ${#HA_TOKEN} chars)"
+log "INFO" "       ONT=${ONT_HOST} user=${ONT_USER} (pass: ${#ONT_PASS} chars) wan=${WAN_INTERFACE}"
+log "INFO" "       vlan=${VLAN_ENABLED} pppoe=${PPPOE_ENABLED} overhead=${OVERHEAD_PER_FRAME} B/frame dry_run=${DRY_RUN}"
 
 export ONT_HOST ONT_USER ONT_PASS
 
@@ -153,6 +169,17 @@ push_state() {
     return 1
 }
 
+mark_success() {
+    date +%s > "$STATUS_FILE" 2>/dev/null || true
+}
+
+if [ "$DRY_RUN_MODE" -eq 1 ]; then
+    log "INFO" "DRY RUN - skipping Home Assistant updates"
+    log "INFO" "  would push received=$NET_RECV sent=$NET_SENT total=$NET_TOTAL"
+    mark_success
+    exit 0
+fi
+
 FAILURES=0
 push_state "sensor.huawei_ont_bytes_received" "$NET_RECV" "Huawei ONT Download Bytes" "$BYTES_RECV" "$FRAMES_RECV" || FAILURES=$((FAILURES + 1))
 push_state "sensor.huawei_ont_bytes_sent"     "$NET_SENT" "Huawei ONT Upload Bytes"     "$BYTES_SENT" "$FRAMES_SENT" || FAILURES=$((FAILURES + 1))
@@ -160,6 +187,7 @@ push_state "sensor.huawei_ont_bytes_total"     "$NET_TOTAL" "Huawei ONT Total By
 
 if [ "$FAILURES" -eq 0 ]; then
     log "INFO" "Successfully pushed Huawei ONT stats to Home Assistant."
+    mark_success
 else
     log "ERROR" "$FAILURES of 3 sensor updates failed."
     exit 1
